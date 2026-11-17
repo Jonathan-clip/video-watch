@@ -56,6 +56,9 @@ h1{font-size:20px;margin:0;font-weight:700}
 .c-title{font-weight:700;font-size:15px;line-height:1.35;direction:ltr;text-align:start;unicode-bidi:plaintext;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .c-sub{font-size:13px;color:var(--muted)}
+.meta-line{display:flex;flex-wrap:wrap;gap:0 6px;align-items:baseline}
+.meta-line bdi{unicode-bidi:isolate}
+#dMeta.meta-line{font-size:14px}
 .c-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .chip{background:var(--chip);border-radius:20px;font-size:12px;padding:1px 9px;color:var(--fg);border:0}
 .mini-stars{color:var(--star);font-size:13px;letter-spacing:1px}

@@ -60,6 +60,12 @@ function filtered(){
 function nextUnwatched(){ return V.slice().sort((a,b)=>(a.order||999)-(b.order||999)||V.indexOf(a)-V.indexOf(b)).find(v=>!(state[v.id]||{}).watched&&!(state[v.id]||{}).deleted); }
 function setFlag(id,flag,val){ const s=st(id); s[flag]=val; save(id); }
 
+// Creator names are usually Latin; keep them in their own isolated run so they don't scramble the Hebrew and digits next to them.
+function metaLine(creator,views,extra){
+  const d=el('div','c-sub meta-line'); const c=el('bdi',null,creator); c.dir='ltr'; d.append(c);
+  [views,extra].filter(Boolean).forEach(t=>{ d.append(el('span','sep','·')); d.append(el('span',null,t)); });
+  return d;
+}
 const TOOLS=['Claude','ChatGPT','Magnific','Seedance','DaVinci Resolve'];
 function renderCats(){
   const cnt={}; V.forEach(v=>(v.cats||[]).forEach(c=>cnt[c]=(cnt[c]||0)+1));
@@ -95,7 +101,7 @@ function render(){
     if(v.order) th.append(el('span','badge','#'+v.order));
     const b=el('div','c-body');
     b.append(el('div','c-title',v.title));
-    b.append(el('div','c-sub',v.creator+' · '+fmtViews(v.views)));
+    b.append(metaLine(v.creator,fmtViews(v.views)));
     b.append(el('div','c-sub',v.technique.replace(/\s*\(.*\)\s*$/,'')));
     const meta=el('div','c-tags');
     const sl=STL[v.status]; if(sl) meta.append(el('span','st '+sl[1],sl[0]));
@@ -125,7 +131,7 @@ function open(id){
   const idx=V.indexOf(v);
   $('dPos').textContent=(v.order?'מומלץ #'+v.order+' · ':'')+(idx+1)+' מתוך '+V.length;
   $('dTitle').textContent=v.title;
-  $('dMeta').textContent=v.creator+' · '+fmtViews(v.views)+(v.stage?' · '+v.stage:'');
+  const dm=$('dMeta'); dm.replaceWith(Object.assign(metaLine(v.creator,fmtViews(v.views),v.stage),{id:'dMeta'}));
   $('dWhy').textContent=v.why||''; $('dDesc').textContent=v.desc||'';
   $('ytLink').href=v.link;
   const w=$('dWarn');
