@@ -26,6 +26,17 @@ h1{font-size:20px;margin:0;font-weight:700}
 .filters input,.filters select{width:100%;height:42px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;padding:0 12px}
 .filters input::placeholder{color:#9fb1aa}
 .filters select option{color:#16211e}
+.cats{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.cats button{flex:0 0 auto;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.07);color:#dbe6e1;border-radius:20px;height:32px;padding:0 12px;font-size:13px;white-space:nowrap}
+.cats button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
+.cats button i{font-style:normal;opacity:.7;margin-inline-start:4px}
+.cats button.tool{border-style:dashed}
+.chip.cat{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.chip.k100{background:var(--accent);color:var(--accent-fg);border-color:transparent;font-weight:700}
+.st{font-size:12px;border-radius:6px;padding:0 6px;border:1px solid var(--line);color:var(--muted)}
+.st.ok{color:var(--ok);border-color:var(--ok)}
+.st.bad{color:#b4531a;border-color:#b4531a}
+.thumb.noimg{display:grid;place-items:center;color:#9fb1aa;font-size:12px;text-align:center;padding:6px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:rgba(255,255,255,.08);padding:3px;border-radius:10px}
 .seg button{border:0;background:transparent;color:#cdd9d4;height:36px;border-radius:8px;font-size:14px;padding:0 4px}

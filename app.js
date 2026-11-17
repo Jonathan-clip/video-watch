@@ -4,7 +4,7 @@ const V = window.VIDEOS;
 const KEY = 'vw_state_v1';
 const $ = id => document.getElementById(id);
 let state = load();
-let ui = {status:'all', tag:'', sort:'rec', q:''};
+let ui = {status:'all', tag:'', sort:'rec', q:'', cat:'', creator:''};
 let current = null, player = null, playerReady = false, timer = null;
 
 function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) || {}; }catch(e){ return {}; } }
@@ -43,6 +43,8 @@ function filtered(){
     if(ui.status==='done' && !s.watched) return false;
     if(ui.status==='top' && !v.order) return false;
     if(ui.tag && !(s.tags||[]).includes(ui.tag)) return false;
+    if(ui.cat && !(v.cats||[]).includes(ui.cat)) return false;
+    if(ui.creator && v.creator!==ui.creator) return false;
     if(ui.q){ const h=(v.title+' '+v.creator+' '+v.technique+' '+(s.tags||[]).join(' ')).toLowerCase(); if(!h.includes(ui.q)) return false; }
     return true;
   });
@@ -55,6 +57,18 @@ function filtered(){
 
 function nextUnwatched(){ return V.slice().sort((a,b)=>(a.order||999)-(b.order||999)||V.indexOf(a)-V.indexOf(b)).find(v=>!(state[v.id]||{}).watched); }
 
+const TOOLS=['Claude','ChatGPT','Magnific','Seedance','DaVinci Resolve'];
+function renderCats(){
+  const cnt={}; V.forEach(v=>(v.cats||[]).forEach(c=>cnt[c]=(cnt[c]||0)+1));
+  const names=Object.keys(cnt).sort((a,b)=>{ const ta=TOOLS.includes(a), tb=TOOLS.includes(b); if(ta!==tb) return ta?-1:1; if(a==='100K+') return -1; if(b==='100K+') return 1; return cnt[b]-cnt[a]; });
+  const box=$('catChips'); box.textContent='';
+  const all=el('button',ui.cat?'':'on','הכל'); all.type='button'; all.onclick=()=>{ ui.cat=''; render(); }; box.append(all);
+  names.forEach(c=>{ const b=el('button',(ui.cat===c?'on ':'')+(TOOLS.includes(c)?'tool':''),c); b.type='button'; const i=el('i',null,cnt[c]); b.append(i); b.onclick=()=>{ ui.cat=(ui.cat===c?'':c); render(); }; box.append(b); });
+  const cs=$('creatorSel'); const cur=ui.creator; cs.length=1;
+  const cc={}; V.forEach(v=>cc[v.creator]=(cc[v.creator]||0)+1);
+  Object.keys(cc).sort((a,b)=>cc[b]-cc[a]||a.localeCompare(b)).forEach(n=>{ const o=el('option',null,n+' ('+cc[n]+')'); o.value=n; cs.append(o); }); cs.value=cur;
+}
+const STL={verified:['אומת ביוטיוב','ok'],dup:['קישור כפול','bad'],unverified:['לא אומת','']};
 function render(){
   const done = V.filter(v=>(state[v.id]||{}).watched).length;
   $('pDone').textContent=done; $('pTotal').textContent=V.length;
@@ -63,19 +77,24 @@ function render(){
   if(n){ pn.append('הבא: '); const a=el('a',null,n.title); a.href='#'+n.id; a.style.cssText='color:#fff;direction:ltr;unicode-bidi:plaintext'; pn.append(a); } else pn.textContent='סיימת את כולם';
   const sel=$('tagSel'); const cur=ui.tag; sel.length=1;
   allTags().forEach(t=>{ const o=el('option',null,t); o.value=t; sel.append(o); }); sel.value=cur;
+  renderCats();
   const list=$('list'); list.textContent='';
   const l=filtered();
   if(!l.length){ list.append(el('div','empty','אין סרטונים שמתאימים לסינון')); return; }
   l.forEach(v=>{
     const s=state[v.id]||{};
     const c=el('button','card'+(s.watched?' done':'')); c.type='button'; c.onclick=()=>{ location.hash=v.id; };
-    const th=el('div','thumb'); const img=el('img'); img.loading='lazy'; img.alt=''; img.src='https://i.ytimg.com/vi/'+v.yt+'/mqdefault.jpg'; th.append(img);
+    const th=el('div','thumb'+(v.yt?'':' noimg'));
+    if(v.yt){ const img=el('img'); img.loading='lazy'; img.alt=''; img.src='https://i.ytimg.com/vi/'+v.yt+'/mqdefault.jpg'; th.append(img); } else th.append(el('span',null,'אין לינק לסרטון'));
     if(v.order) th.append(el('span','badge','#'+v.order));
     const b=el('div','c-body');
     b.append(el('div','c-title',v.title));
     b.append(el('div','c-sub',v.creator+' · '+fmtViews(v.views)));
     b.append(el('div','c-sub',v.technique.replace(/\s*\(.*\)\s*$/,'')));
     const meta=el('div','c-tags');
+    const sl=STL[v.status]; if(sl) meta.append(el('span','st '+sl[1],sl[0]));
+    if((v.cats||[]).includes('100K+')) meta.append(el('span','chip k100','100K+'));
+    (v.cats||[]).filter(c=>TOOLS.includes(c)).forEach(c=>meta.append(el('span','chip cat',c)));
     if(s.rating) meta.append(el('span','mini-stars','★'.repeat(s.rating)));
     (s.tags||[]).forEach(t=>meta.append(el('span','chip',t)));
     if((s.notes||[]).length) meta.append(el('span','note-count',s.notes.length+' הערות'));
@@ -93,12 +112,17 @@ function open(id){
   $('dTitle').textContent=v.title;
   $('dMeta').textContent=v.creator+' · '+fmtViews(v.views)+(v.stage?' · '+v.stage:'');
   $('dWhy').textContent=v.why||''; $('dDesc').textContent=v.desc||'';
-  $('ytLink').href='https://www.youtube.com/watch?v='+v.yt;
-  const w=$('dWarn'); if(ytCount[v.yt]>1){ w.hidden=false; w.textContent='שימו לב: בקובץ האקסל הלינק הזה מופיע ב-'+ytCount[v.yt]+' שורות עם שמות שונים, ולכן ייתכן שהסרטון לא תואם לכותרת.'; } else w.hidden=true;
+  $('ytLink').href=v.link;
+  const w=$('dWarn');
+  if(v.status==='dup'){ w.hidden=false; w.textContent='בבדיקת האקסל נמצא שהלינק מופיע ב-'+ytCount[v.yt]+' שורות עם כותרות שונות, ולכן ייתכן שהסרטון בנגן לא תואם לכותרת.'; }
+  else if(v.note){ w.hidden=false; w.textContent=v.note; } else w.hidden=true;
+  const dc=$('dCats'); dc.textContent=''; (v.cats||[]).forEach(c=>dc.append(el('span','chip cat'+(c==='100K+'?' k100':''),c)));
+  const cb=el('button','chip cat','יוצר: '+v.creator); cb.type='button'; cb.onclick=()=>{ ui.creator=v.creator; closeDetail(); }; dc.prepend(cb);
   $('detail').hidden=false; document.body.style.overflow='hidden';
   $('detail').querySelector('.detail-body').scrollTop=0;
   $('fallback').hidden=true;
   renderDetail();
+  if(!v.yt){ clearInterval(timer); fallback('באקסל אין לינק לסרטון עצמו, רק לערוץ.'); return; }
   loadPlayer(v.yt);
 }
 function closeDetail(noHash){
@@ -158,6 +182,7 @@ function seek(t){ try{ player.seekTo(t,true); player.playVideo(); }catch(e){ toa
 $('search').addEventListener('input',e=>{ ui.q=e.target.value.trim().toLowerCase(); render(); });
 $('statusSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; ui.status=b.dataset.s; [...$('statusSeg').children].forEach(x=>x.classList.toggle('on',x===b)); render(); });
 $('tagSel').addEventListener('change',e=>{ ui.tag=e.target.value; render(); });
+$('creatorSel').addEventListener('change',e=>{ ui.creator=e.target.value; render(); });
 $('sortSel').addEventListener('change',e=>{ ui.sort=e.target.value; render(); });
 $('closeBtn').onclick=()=>closeDetail();
 function step(d){ const i=V.indexOf(current)+d; if(i>=0&&i<V.length) location.hash=V[i].id; }
