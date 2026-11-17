@@ -26,6 +26,8 @@
       <button data-s="todo">לא נצפו</button>
       <button data-s="done">נצפו</button>
       <button data-s="top">10 להתחלה</button>
+      <button data-s="later">אחר כך</button>
+      <button data-s="trash">נמחקו</button>
     </div>
     <div class="cats" id="catChips" aria-label="קטגוריות"></div>
     <select id="creatorSel" aria-label="יוצר"><option value="">כל היוצרים</option></select>
@@ -66,7 +68,9 @@
       <p class="warn" id="dWarn" hidden></p>
       <div class="d-actions">
         <button class="primary" id="watchedBtn"></button>
+        <button class="ghost" id="laterBtn" type="button"></button>
         <a class="ghost" id="ytLink" target="_blank" rel="noopener">פתיחה ביוטיוב</a>
+        <button class="ghost danger" id="delBtn" type="button"></button>
       </div>
       <div class="stars" id="stars" aria-label="דירוג"></div>
       <div class="tags" id="dCats"></div>

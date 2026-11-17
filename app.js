@@ -8,7 +8,7 @@ let ui = {status:'all', tag:'', sort:'rec', q:'', cat:'', creator:''};
 let current = null, player = null, playerReady = false, timer = null;
 
 function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) || {}; }catch(e){ return {}; } }
-function save(){ if(current&&state[current.id]) state[current.id].u=Date.now();
+function save(id){ id=id||(current&&current.id); if(id&&state[id]) state[id].u=Date.now();
   try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ toast('השמירה בדפדפן נכשלה'); } pushSoon(); }
 
 /* ---------- cloud sync (secret key in the address: ?key=...) ---------- */
@@ -39,6 +39,8 @@ function allTags(){ const s=new Set(); Object.values(state).forEach(x=>(x.tags||
 function filtered(){
   let l = V.filter(v=>{
     const s = state[v.id]||{};
+    if(ui.status==='trash'){ if(!s.deleted) return false; } else if(s.deleted) return false;
+    if(ui.status==='later' && !s.later) return false;
     if(ui.status==='todo' && s.watched) return false;
     if(ui.status==='done' && !s.watched) return false;
     if(ui.status==='top' && !v.order) return false;
@@ -55,7 +57,8 @@ function filtered(){
   return l;
 }
 
-function nextUnwatched(){ return V.slice().sort((a,b)=>(a.order||999)-(b.order||999)||V.indexOf(a)-V.indexOf(b)).find(v=>!(state[v.id]||{}).watched); }
+function nextUnwatched(){ return V.slice().sort((a,b)=>(a.order||999)-(b.order||999)||V.indexOf(a)-V.indexOf(b)).find(v=>!(state[v.id]||{}).watched&&!(state[v.id]||{}).deleted); }
+function setFlag(id,flag,val){ const s=st(id); s[flag]=val; save(id); }
 
 const TOOLS=['Claude','ChatGPT','Magnific','Seedance','DaVinci Resolve'];
 function renderCats(){
@@ -70,9 +73,12 @@ function renderCats(){
 }
 const STL={verified:['אומת ביוטיוב','ok'],dup:['קישור כפול','bad'],unverified:['לא אומת','']};
 function render(){
-  const done = V.filter(v=>(state[v.id]||{}).watched).length;
-  $('pDone').textContent=done; $('pTotal').textContent=V.length;
-  $('barFill').style.width=(done/V.length*100)+'%';
+  const live = V.filter(v=>!(state[v.id]||{}).deleted);
+  const done = live.filter(v=>(state[v.id]||{}).watched).length;
+  $('pDone').textContent=done; $('pTotal').textContent=live.length;
+  $('barFill').style.width=(live.length?done/live.length*100:0)+'%';
+  const nl=live.filter(v=>(state[v.id]||{}).later).length, nt=V.length-live.length;
+  const sb=$('statusSeg').children; sb[4].textContent='אחר כך'+(nl?' ('+nl+')':''); sb[5].textContent='נמחקו'+(nt?' ('+nt+')':'');
   const n=nextUnwatched(); const pn=$('pNext'); pn.textContent='';
   if(n){ pn.append('הבא: '); const a=el('a',null,n.title); a.href='#'+n.id; a.style.cssText='color:#fff;direction:ltr;unicode-bidi:plaintext'; pn.append(a); } else pn.textContent='סיימת את כולם';
   const sel=$('tagSel'); const cur=ui.tag; sel.length=1;
@@ -83,7 +89,7 @@ function render(){
   if(!l.length){ list.append(el('div','empty','אין סרטונים שמתאימים לסינון')); return; }
   l.forEach(v=>{
     const s=state[v.id]||{};
-    const c=el('button','card'+(s.watched?' done':'')); c.type='button'; c.onclick=()=>{ location.hash=v.id; };
+    const c=el('div','card'+(s.watched?' done':'')); c.tabIndex=0; c.setAttribute('role','button'); c.onclick=()=>{ location.hash=v.id; }; c.onkeydown=e=>{ if(e.key==='Enter') location.hash=v.id; };
     const th=el('div','thumb'+(v.yt?'':' noimg'));
     if(v.yt){ const img=el('img'); img.loading='lazy'; img.alt=''; img.src='https://i.ytimg.com/vi/'+v.yt+'/mqdefault.jpg'; th.append(img); } else th.append(el('span',null,'אין לינק לסרטון'));
     if(v.order) th.append(el('span','badge','#'+v.order));
@@ -98,7 +104,16 @@ function render(){
     if(s.rating) meta.append(el('span','mini-stars','★'.repeat(s.rating)));
     (s.tags||[]).forEach(t=>meta.append(el('span','chip',t)));
     if((s.notes||[]).length) meta.append(el('span','note-count',s.notes.length+' הערות'));
+    if(s.later) meta.append(el('span','chip k100','לצפות אחר כך'));
     if(meta.childNodes.length) b.append(meta);
+    const acts=el('div','c-acts');
+    const mk=(txt,fn,cls)=>{ const x=el('button','mini'+(cls?' '+cls:''),txt); x.type='button'; x.onclick=e=>{ e.stopPropagation(); fn(); }; acts.append(x); };
+    if(s.deleted){ mk('שחזור',()=>{ setFlag(v.id,'deleted',false); render(); toast('הסרטון שוחזר'); }); }
+    else{
+      mk(s.later?'הסר מ"אחר כך"':'אחר כך',()=>{ setFlag(v.id,'later',!s.later); render(); });
+      mk('מחיקה',()=>{ setFlag(v.id,'deleted',true); render(); toast('הסרטון נמחק. אפשר לשחזר בלשונית "נמחקו"'); },'danger');
+    }
+    b.append(acts);
     c.append(th,b); list.append(c);
   });
 }
@@ -135,6 +150,8 @@ function closeDetail(noHash){
 function renderDetail(){
   if(!current) return; const s=st(current.id);
   const wb=$('watchedBtn'); wb.textContent=s.watched?'✓ נצפה (לחיצה לביטול)':'סימון כנצפה'; wb.classList.toggle('is-done',!!s.watched);
+  const lb=$('laterBtn'); lb.textContent=s.later?'✓ ברשימת "אחר כך"':'לצפות אחר כך';
+  const db=$('delBtn'); db.textContent=s.deleted?'שחזור סרטון':'מחיקה';
   const stars=$('stars'); stars.textContent='';
   for(let i=5;i>=1;i--){ const b=el('button',i<=s.rating?'on':'','★'); b.type='button'; b.setAttribute('aria-label',i+' כוכבים'); b.onclick=()=>{ s.rating=(s.rating===i?0:i); save(); renderDetail(); }; stars.append(b); }
   const tg=$('dTags'); tg.textContent='';
@@ -188,6 +205,8 @@ $('closeBtn').onclick=()=>closeDetail();
 function step(d){ const i=V.indexOf(current)+d; if(i>=0&&i<V.length) location.hash=V[i].id; }
 $('prevBtn').onclick=()=>step(-1); $('nextBtn').onclick=()=>step(1);
 $('watchedBtn').onclick=()=>{ const s=st(current.id); s.watched=!s.watched; save(); renderDetail(); if(s.watched) toast('סומן כנצפה'); };
+$('laterBtn').onclick=()=>{ const s=st(current.id); s.later=!s.later; save(); renderDetail(); toast(s.later?'נוסף ל"אחר כך"':'הוסר מ"אחר כך"'); };
+$('delBtn').onclick=()=>{ const s=st(current.id); if(s.deleted){ s.deleted=false; save(); renderDetail(); toast('הסרטון שוחזר'); } else { s.deleted=true; save(); closeDetail(); toast('הסרטון נמחק. אפשר לשחזר בלשונית "נמחקו"'); } };
 $('tagForm').addEventListener('submit',e=>{ e.preventDefault(); const t=$('tagInput').value.trim(); if(!t) return; const s=st(current.id); if(!s.tags.includes(t)) s.tags.push(t); $('tagInput').value=''; save(); renderDetail(); });
 $('noteForm').addEventListener('submit',e=>{ e.preventDefault(); const text=$('noteText').value.trim(); if(!text) return;
   let t=null; if($('noteStamp').checked){ try{ t=Math.floor(player.getCurrentTime()); }catch(err){ t=null; } }
